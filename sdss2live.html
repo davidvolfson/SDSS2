@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDSS II — Portfolio Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0c10;--surface:#12151c;--surface2:#181c26;--border:#1e2330;--text:#e2e4e9;--text2:#8b8f9a;--accent:#5b8af5;--green:#34d399;--red:#f87171;--amber:#fbbf24;--header-bg:#0d0f14}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;line-height:1.5;min-height:100vh}
+.top-bar{background:var(--header-bg);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#8b5cf6);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;letter-spacing:-0.5px}
+.logo h1{font-size:18px;font-weight:700;letter-spacing:-0.5px}
+.logo h1 span{color:var(--text2);font-weight:400}
+.status-bar{display:flex;align-items:center;gap:20px;font-size:13px;color:var(--text2)}
+.status-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px}
+.status-dot.live{background:var(--green);animation:pulse 2s infinite}
+.status-dot.stale{background:var(--amber);animation:none}
+.status-dot.err{background:var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.api-badge{font-size:11px;padding:3px 8px;border-radius:4px;font-family:'JetBrains Mono',monospace}
+.api-badge.ok{background:rgba(52,211,153,.12);color:var(--green)}
+.api-badge.warn{background:rgba(251,191,36,.12);color:var(--amber)}
+.api-badge.err{background:rgba(248,113,113,.12);color:var(--red)}
+.container{max-width:1600px;margin:0 auto;padding:24px 32px}
+.summary-wrap{position:sticky;top:57px;z-index:99;background:var(--bg);padding:0 0 4px 0;margin:0 -32px;padding-left:32px;padding-right:32px}
+.summary-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:12px}
+.summary-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
+.summary-card .label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:6px;font-weight:600}
+.summary-card .value{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600}
+.summary-card .sub{font-size:12px;margin-top:4px;font-family:'JetBrains Mono',monospace}
+.fx-strip{display:flex;align-items:center;gap:20px;padding:10px 20px;background:var(--surface);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;font-size:12px;flex-wrap:wrap}
+.fx-strip .fx-label{color:var(--text2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+.fx-strip .fx-pair{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace}
+.fx-strip .fx-pair .fx-name{color:var(--text2)}
+.fx-strip .fx-pair .fx-rate{color:var(--text);font-weight:600}
+.fx-strip .fx-src{margin-left:auto;color:var(--text2);font-size:10px;font-style:italic}
+.positive{color:var(--green)}.negative{color:var(--red)}
+.table-section{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:32px}
+.table-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.table-header h2{font-size:15px;font-weight:600}
+.table-header .right{display:flex;align-items:center;gap:8px}
+.timestamp{font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace}
+.refresh-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .2s}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent)}
+.refresh-btn.loading{opacity:.5;pointer-events:none}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--surface2);padding:10px 14px;text-align:right;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);white-space:nowrap;border-bottom:1px solid var(--border)}
+thead th:first-child,thead th:nth-child(2),thead th:nth-child(3){text-align:left}
+tbody td{padding:10px 14px;text-align:right;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:12px;white-space:nowrap;transition:background .5s}
+tbody td:first-child{text-align:left;font-family:'DM Sans',sans-serif;font-weight:600;color:var(--accent);font-size:13px}
+tbody td:nth-child(2){text-align:left;font-family:'DM Sans',sans-serif;font-weight:500;font-size:12px;color:var(--text);max-width:200px;overflow:hidden;text-overflow:ellipsis}
+tbody td:nth-child(3){text-align:left;font-size:11px;color:var(--text2)}
+tbody tr:hover{background:rgba(91,138,245,.04)}
+.flash-up{background:rgba(52,211,153,.1) !important}
+.flash-dn{background:rgba(248,113,113,.1) !important}
+.subtotal-row td{font-weight:700 !important;background:var(--surface2) !important;border-top:2px solid var(--border);font-family:'JetBrains Mono',monospace !important;color:var(--text) !important}
+.subtotal-row td:first-child{font-family:'DM Sans',sans-serif !important;color:var(--text) !important}
+.total-row td{font-weight:700 !important;background:rgba(91,138,245,.08) !important;border-top:2px solid var(--accent);font-size:13px !important;font-family:'JetBrains Mono',monospace !important;color:var(--text) !important}
+.total-row td:first-child{font-family:'DM Sans',sans-serif !important;color:var(--accent) !important}
+.region-label td{background:var(--bg) !important;font-family:'DM Sans',sans-serif !important;font-weight:700 !important;font-size:11px !important;text-transform:uppercase !important;letter-spacing:1px !important;color:var(--text2) !important;padding:14px 14px 8px !important;border-bottom:none !important}
+.live-dot{width:5px;height:5px;border-radius:50%;display:inline-block;margin-right:3px}
+.live-dot.on{background:var(--green)}.live-dot.off{background:var(--text2)}
+.badge{display:inline-block;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:600}
+.badge-mf{background:rgba(52,211,153,.15);color:var(--green)}
+.badge-ind{background:rgba(91,138,245,.15);color:var(--accent)}
+.badge-off{background:rgba(251,191,36,.15);color:var(--amber)}
+.badge-sp{background:rgba(168,85,247,.15);color:#a855f7}
+.badge-div{background:rgba(248,113,113,.15);color:var(--red)}
+.earnings-section{margin-top:40px}
+.earnings-section>h2{font-size:18px;font-weight:700;margin-bottom:20px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.earnings-grid{display:grid;grid-template-columns:1fr;gap:16px}
+.earning-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:border-color .2s}
+.earning-card:hover{border-color:var(--accent)}
+.ec-header{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:var(--surface2);flex-wrap:wrap;gap:8px}
+.ec-ticker{display:flex;align-items:center;gap:12px}
+.ec-ticker .tk{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--accent)}
+.ec-ticker .nm{font-size:13px;color:var(--text2)}
+.ec-meta{font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace}
+.ec-body{padding:16px 20px}
+.ec-body h4{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:8px;font-weight:600}
+.ec-body p{font-size:13px;line-height:1.65;color:var(--text);margin-bottom:14px}
+.ec-body ul{list-style:none;padding:0;margin:0 0 14px 0}
+.ec-body li{font-size:13px;line-height:1.6;color:var(--text);padding:4px 0 4px 16px;position:relative}
+.ec-body li::before{content:'›';position:absolute;left:0;color:var(--accent);font-weight:700}
+.ec-dates{display:flex;gap:20px;flex-wrap:wrap;padding:12px 20px;background:var(--bg);border-top:1px solid var(--border);font-size:12px}
+.dt-item{display:flex;align-items:center;gap:6px}
+.dt-label{color:var(--text2)}.dt-val{font-family:'JetBrains Mono',monospace;color:var(--amber);font-weight:500}
+.footer{text-align:center;padding:40px 0 32px;font-size:12px;color:var(--text2);border-top:1px solid var(--border);margin-top:48px}
+.earn-alert{background:rgba(251,191,36,.08);border:1px solid var(--amber);border-radius:10px;padding:14px 20px;margin-bottom:12px;display:flex;align-items:center;gap:12px;font-size:13px;animation:alertPulse 3s ease-in-out infinite}
+.earn-alert.new-earnings{background:rgba(248,113,113,.08);border-color:var(--red)}
+.earn-alert .alert-icon{font-size:20px;flex-shrink:0}
+.earn-alert .alert-body{flex:1}
+.earn-alert .alert-title{font-weight:700;margin-bottom:2px}
+.earn-alert .alert-detail{color:var(--text2);font-size:12px}
+.earn-alert .alert-time{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--amber);white-space:nowrap}
+.earn-alert.new-earnings .alert-time{color:var(--red)}
+@keyframes alertPulse{0%,100%{opacity:1}50%{opacity:.85}}
+.countdown-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;margin-left:8px}
+.countdown-badge.imminent{background:rgba(248,113,113,.15);color:var(--red)}
+.countdown-badge.upcoming{background:rgba(251,191,36,.15);color:var(--amber)}
+.countdown-badge.distant{background:rgba(91,138,245,.1);color:var(--accent)}
+.dismiss-btn{background:none;border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:4px;font-size:11px;cursor:pointer;white-space:nowrap}
+.dismiss-btn:hover{border-color:var(--text);color:var(--text)}
+@media(max-width:1200px){.summary-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){.summary-grid{grid-template-columns:repeat(2,1fr)}.container{padding:16px}.top-bar{padding:12px 16px;flex-wrap:wrap;gap:8px}}
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="logo">
+    <div class="logo-mark">SW</div>
+    <h1>SDSS II <span>Position Summary</span></h1>
+  </div>
+  <div class="status-bar">
+    <span><span class="status-dot stale" id="sDot"></span><span id="sTxt">Connecting...</span></span>
+    <span class="api-badge warn" id="aBadge">Loading...</span>
+    <span id="clock"></span>
+  </div>
+</div>
+
+<div class="container">
+  <div class="summary-wrap">
+  <div class="summary-grid">
+    <div class="summary-card"><div class="label">Total Basis</div><div class="value">$262.8M</div><div class="sub" style="color:var(--text2)">Remaining Cost</div></div>
+    <div class="summary-card"><div class="label">Market Value</div><div class="value" id="sMV">$269.6M</div><div class="sub" style="color:var(--text2)" id="sMVsub">Loading...</div></div>
+    <div class="summary-card"><div class="label">Total P&L</div><div class="value positive" id="sPL">+$19.1M</div><div class="sub positive" id="sPLsub">+7.1% Unlevered</div></div>
+    <div class="summary-card"><div class="label">Margin Facility</div><div class="value">$121.7M</div><div class="sub" style="color:var(--text2)">Outstanding</div></div>
+    <div class="summary-card"><div class="label">Levered Equity</div><div class="value">$141.1M</div><div class="sub" style="color:var(--text2)">Net Invested</div></div>
+  </div>
+  </div>
+
+  <div class="fx-strip" id="fxStrip">
+    <span class="fx-label">FX Rates</span>
+    <span class="fx-pair"><span class="fx-name">EUR/USD</span> <span class="fx-rate" id="fxEUR">1.1800</span></span>
+    <span class="fx-pair"><span class="fx-name">GBP/USD</span> <span class="fx-rate" id="fxGBP">1.3480</span></span>
+    <span class="fx-pair"><span class="fx-name">AUD/USD</span> <span class="fx-rate" id="fxAUD">0.7110</span></span>
+    <span class="fx-pair"><span class="fx-name">USD/JPY</span> <span class="fx-rate" id="fxJPY">156.01</span></span>
+    <span class="fx-src" id="fxSrc">Fallback rates — updating...</span>
+  </div>
+
+  <div class="table-section">
+    <div class="table-header">
+      <h2>Levered Position Detail</h2>
+      <div class="right">
+        <div class="timestamp">Last update: <span id="lastUpd">—</span></div>
+        <button class="refresh-btn" id="refBtn" onclick="refresh()">↻ Refresh</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>Ticker</th><th>Company</th><th>Type / Geo</th><th>Shares</th><th>Basis/Sh</th><th>Rem. Basis</th><th>Margin</th><th>Lev. Equity</th><th>Live Price</th><th>Chg</th><th>Div Yld</th><th>Mkt Value</th><th>Unrealized</th><th>Realized</th><th>Dividends</th><th>Total P&L</th><th>Unlev %</th><th>Lev %</th>
+      </tr></thead><tbody id="tbody"></tbody></table>
+    </div>
+  </div>
+
+  <div class="earnings-section">
+    <h2><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> Latest Earnings & Key Dates</h2>
+    <div id="earningsAlerts"></div>
+    <div class="earnings-grid" id="eGrid"></div>
+  </div>
+</div>
+<div class="footer">SDSS II — Starwood Distressed Special Situations II &bull; Confidential &bull; Live via Yahoo Finance &bull; Auto-refresh 30s</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   PORTFOLIO DATA (from PDF 02/23/26)
+   ═══════════════════════════════════════════════════ */
+const P = [
+  {r:'U.S. — Common Stock',t:'CPT',n:'Camden Property Trust',ty:'Multifamily',g:'United States',b:'mf',sh:695729,bps:108.55,bas:75521206,mar:38468768,le:37052438,op:108.20,adps:4.24,rl:0,dv:2389151,c:'USD',yf:'CPT'},
+  {t:'NXRT',n:'NexPoint Residential Trust',ty:'Multifamily',g:'United States',b:'mf',sh:989419,bps:33.14,bas:32793620,mar:12697013,le:20096607,op:29.69,adps:2.12,rl:0,dv:2516673,c:'USD',yf:'NXRT'},
+  {t:'FR',n:'First Industrial Realty Trust',ty:'Industrial',g:'United States',b:'ind',sh:581012,bps:50.20,bas:29168627,mar:14641774,le:14526853,op:62.00,adps:2.00,rl:0,dv:1569928,c:'USD',yf:'FR'},
+  {t:'EQR',n:'Equity Residential',ty:'Multifamily',g:'United States',b:'mf',sh:388438,bps:69.09,bas:26836368,mar:13542606,le:13293762,op:63.32,adps:2.77,rl:0,dv:1418489,c:'USD',yf:'EQR'},
+  {t:'MAA',n:'Mid-America Apartment Communities',ty:'Multifamily',g:'United States',b:'mf',sh:219407,bps:142.46,bas:31257419,mar:16834412,le:14423007,op:133.33,adps:6.12,rl:0,dv:1939317,c:'USD',yf:'MAA'},
+  {t:'VRE',n:'Veris Residential',ty:'Multifamily',g:'United States',b:'mf',sh:419533,bps:15.79,bas:6624324,mar:3657594,le:2966731,op:18.81,adps:0.32,rl:0,dv:197181,c:'USD',yf:'VRE'},
+  {t:'PGRE',n:'Paramount Group',ty:'Office',g:'United States',b:'off',sh:0,bps:0,bas:0,mar:0,le:0,op:6.60,adps:0,rl:285164,dv:0,c:'USD',yf:'PGRE',unlev:39.7,lev:39.7},
+  {r:'Europe — Common Stock',t:'IRES',n:'Irish Residential Properties REIT',ty:'Multifamily',g:'Ireland',b:'mf',sh:15357789,bps:1.02,bas:16887893,mar:0,le:16887893,op:1.08,adps:0.048,rl:0,dv:995438,c:'EUR',s:'€',yf:'IRES.IR'},
+  {t:'SGRO',n:'SEGRO Plc',ty:'Industrial',g:'United Kingdom',b:'ind',sh:3885000,bps:7.82,bas:39503089,mar:20585177,le:18917911,op:8.16,adps:0.311,rl:0,dv:792962,c:'GBP',s:'£',yf:'SGRO.L'},
+  {t:'XIOR',n:'Xior Student Housing NV',ty:'Specialty',g:'Belgium',b:'sp',sh:85785,bps:27.55,bas:2556667,mar:1243838,le:1312830,op:30.05,adps:1.768,rl:0,dv:201014,c:'EUR',s:'€',yf:'XIOR.BR'},
+  {r:'Asia & Australia — Common Stock',t:'CNI',n:'Centuria Capital Group',ty:'Diversified',g:'Australia',b:'div',sh:0,bps:0,bas:0,mar:0,le:0,op:1.98,adps:0,rl:2007994,dv:397670,c:'AUD',s:'A$',yf:'CNI.AX',unlev:49.6,lev:49.6},
+  {t:'8979',n:'Starts Proceed Investment Corp.',ty:'Multifamily',g:'Japan',b:'mf',sh:1226,bps:210926.61,bas:1634188,mar:0,le:1634188,op:211500,adps:9500,rl:0,dv:0,c:'JPY',s:'¥',yf:'8979.T'},
+];
+
+let lp = {};    // live prices { ticker: {price, chg, chgPct} }
+let prevP = {}; // previous prices for flash
+let fx = {EUR:1.18, GBP:1.348, AUD:0.711, JPY:0.00641}; // USD per 1 unit of foreign — updated 02/27/26 (JPY = 1/156)
+
+/* ═══════════════════════════════════════════════════
+   YAHOO FINANCE QUOTE FETCHER (via public v8 endpoint + CORS proxy)
+   ═══════════════════════════════════════════════════ */
+async function fetchYahooQuotes(symbols) {
+  // Yahoo Finance v8 quote endpoint — works with a CORS proxy
+  const symStr = symbols.join(',');
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbols[0]}`;
+
+  // We'll fetch each individually since the batch endpoint needs auth
+  const results = {};
+  const proxies = [
+    s => `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${s}?interval=1d&range=2d`)}`,
+    s => `https://corsproxy.io/?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${s}?interval=1d&range=2d`)}`,
+    s => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${s}?interval=1d&range=2d`)}`,
+  ];
+
+  for (const sym of symbols) {
+    for (const makeUrl of proxies) {
+      try {
+        const resp = await fetch(makeUrl(sym), {signal: AbortSignal.timeout(8000)});
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        const meta = data?.chart?.result?.[0]?.meta;
+        if (meta && meta.regularMarketPrice) {
+          const openPrice = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.open?.slice(-1)?.[0] || meta.regularMarketPrice;
+          const price = meta.regularMarketPrice;
+          const chg = price - openPrice;
+          const chgPct = openPrice ? ((chg / openPrice) * 100) : 0;
+          results[sym] = { price, chg, chgPct, currency: meta.currency };
+
+          // Also extract FX if this is a foreign currency
+          if (meta.currency === 'EUR') fx.EUR = meta.regularMarketPrice ? 1.08 : fx.EUR; // FX handled separately
+          break; // success, move to next symbol
+        }
+      } catch(e) {
+        continue; // try next proxy
+      }
+    }
+    // Small delay to be polite
+    await new Promise(r => setTimeout(r, 150));
+  }
+  return results;
+}
+
+async function fetchFX() {
+  const pairs = [
+    {sym:'EURUSD=X', key:'EUR'},
+    {sym:'GBPUSD=X', key:'GBP'},
+    {sym:'AUDUSD=X', key:'AUD'},
+    {sym:'JPY=X', key:'JPY'},
+  ];
+  let fetched = {};
+  const proxies = [
+    s => `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${s}?interval=1d&range=1d`)}`,
+    s => `https://corsproxy.io/?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${s}?interval=1d&range=1d`)}`,
+    s => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${s}?interval=1d&range=1d`)}`,
+  ];
+  for (const pair of pairs) {
+    let success = false;
+    for (const makeUrl of proxies) {
+      try {
+        const resp = await fetch(makeUrl(pair.sym), {signal: AbortSignal.timeout(6000)});
+        if (!resp.ok) { console.log(`FX ${pair.sym}: proxy returned ${resp.status}`); continue; }
+        const data = await resp.json();
+        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+        console.log(`FX ${pair.sym}: raw price = ${price}`);
+        if (price && price > 0) {
+          if (pair.key === 'JPY') { fx.JPY = 1 / price; }
+          else { fx[pair.key] = price; }
+          fetched[pair.key] = true;
+          success = true;
+          break;
+        }
+      } catch(e) { console.log(`FX ${pair.sym}: proxy error — ${e.message}`); continue; }
+    }
+    if (!success) console.warn(`FX ${pair.key}: ALL proxies failed, using fallback ${pair.key==='JPY' ? (1/fx.JPY).toFixed(2) : fx[pair.key]}`);
+    await new Promise(r => setTimeout(r, 150));
+  }
+  updateFxDisplay(fetched);
+}
+
+function updateFxDisplay(fetched) {
+  const ids = {EUR:'fxEUR', GBP:'fxGBP', AUD:'fxAUD'};
+  for (const [key, id] of Object.entries(ids)) {
+    const el = document.getElementById(id);
+    el.textContent = fx[key].toFixed(4);
+    el.style.color = fetched[key] ? 'var(--green)' : 'var(--amber)';
+  }
+  const jpyEl = document.getElementById('fxJPY');
+  jpyEl.textContent = (1/fx.JPY).toFixed(2);
+  jpyEl.style.color = fetched['JPY'] ? 'var(--green)' : 'var(--amber)';
+
+  const src = document.getElementById('fxSrc');
+  const liveCount = Object.keys(fetched).length;
+  if (liveCount === 4) {
+    src.textContent = `All live · ${new Date().toLocaleTimeString()}`;
+    src.style.color = 'var(--green)';
+  } else if (liveCount > 0) {
+    src.textContent = `${liveCount}/4 live, rest fallback · ${new Date().toLocaleTimeString()}`;
+    src.style.color = 'var(--amber)';
+  } else {
+    src.textContent = 'All fallback — proxies unavailable';
+    src.style.color = 'var(--red)';
+  }
+}
+
+async function refresh() {
+  const btn = document.getElementById('refBtn');
+  btn.classList.add('loading'); btn.textContent = '↻ Fetching...';
+  setStatus('connecting');
+
+  await fetchFX();
+
+  const syms = P.filter(p => p.sh > 0 && p.yf).map(p => p.yf);
+  const quotes = await fetchYahooQuotes(syms);
+
+  let ok = 0;
+  for (const p of P) {
+    if (!p.yf || p.sh === 0) continue;
+    const q = quotes[p.yf];
+    if (q) {
+      const old = lp[p.t]?.price;
+      lp[p.t] = q;
+      if (old && q.price !== old) prevP[p.t] = q.price > old ? 'up' : 'dn';
+      ok++;
+    }
+  }
+
+  setStatus(ok > 0 ? 'live' : 'err');
+  document.getElementById('lastUpd').textContent = new Date().toLocaleTimeString();
+  btn.classList.remove('loading'); btn.textContent = '↻ Refresh';
+
+  render();
+  updateCards();
+  setTimeout(() => { prevP = {}; }, 1500);
+}
+
+/* ═══════════════════════════════════════════════════ */
+function setStatus(s) {
+  const d = document.getElementById('sDot'), t = document.getElementById('sTxt'), b = document.getElementById('aBadge');
+  if (s==='live') { d.className='status-dot live'; t.textContent='Live Prices'; b.className='api-badge ok'; b.textContent='Yahoo Finance Connected'; }
+  else if (s==='connecting') { d.className='status-dot stale'; t.textContent='Updating...'; b.className='api-badge warn'; b.textContent='Fetching quotes...'; }
+  else { d.className='status-dot err'; t.textContent='Offline — Using Last Prices'; b.className='api-badge err'; b.textContent='Proxy unavailable — retry shortly'; }
+}
+
+function price(p) {
+  const raw = lp[p.t]?.price ?? p.op;
+  // Yahoo returns London-listed stocks in pence — always convert to pounds
+  if (p.t === 'SGRO' && lp[p.t]) return raw / 100;
+  return raw;
+}
+function priceUSD(p) {
+  const loc = price(p);
+  if (p.c==='EUR') return loc * fx.EUR;
+  if (p.c==='GBP') return loc * fx.GBP;
+  if (p.c==='AUD') return loc * fx.AUD;
+  if (p.c==='JPY') return loc * fx.JPY;
+  return loc;
+}
+function mv(p) { return p.sh > 0 ? p.sh * priceUSD(p) : 0; }
+function unr(p) { return p.sh > 0 ? mv(p) - p.bas : 0; }
+function tpl(p) { return unr(p) + (p.rl||0) + (p.dv||0); }
+
+function $(n) { return n===0?'—':'$'+Math.abs(n).toLocaleString('en-US',{maximumFractionDigits:0}); }
+function pl(n) { if(n===0) return '—'; const s=n>=0?'+':'-',a=Math.abs(n); return a>=1e6?s+'$'+(a/1e6).toFixed(1)+'M':a>=1e3?s+'$'+(a/1e3).toFixed(0)+'K':s+'$'+a.toLocaleString(); }
+function pc(v) { return (v>=0?'+':'')+v.toFixed(1)+'%'; }
+function cls(v) { return v>=0?'positive':'negative'; }
+const BM = {mf:'badge-mf',ind:'badge-ind',off:'badge-off',sp:'badge-sp',div:'badge-div'};
+
+function render() {
+  const tb = document.getElementById('tbody');
+  let h = '', cr = '', ra = {};
+
+  P.forEach((p,i) => {
+    if (p.r && p.r !== cr) {
+      if (cr && ra[cr]) h += subRow(cr, ra[cr]);
+      cr = p.r;
+      ra[cr] = {bas:0,mar:0,le:0,mv:0,unr:0,rl:0,dv:0};
+      h += `<tr class="region-label"><td colspan="18">${cr}</td></tr>`;
+    }
+    const a = ra[cr], m = mv(p), u = unr(p), t = tpl(p);
+    a.bas+=p.bas; a.mar+=p.mar; a.le+=p.le; a.mv+=m; a.unr+=u; a.rl+=(p.rl||0); a.dv+=(p.dv||0);
+
+    const live = lp[p.t], pr = price(p), sym = p.s||'$';
+    const chgPct = live?.chgPct ?? 0;
+    const isLive = !!live;
+    const fl = prevP[p.t]==='up'?'flash-up':prevP[p.t]==='dn'?'flash-dn':'';
+    const uPct = p.bas>0 ? t/p.bas*100 : (t>0?99.9:0);
+    const lPct = p.le>0 ? t/p.le*100 : uPct;
+    const prStr = p.c==='JPY' ? sym+pr.toLocaleString('en-US',{maximumFractionDigits:0}) : sym+pr.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+    h += `<tr class="${fl}">
+      <td>${p.t}</td><td>${p.n}</td>
+      <td><span class="badge ${BM[p.b]}">${p.ty}</span> ${p.g}</td>
+      <td>${p.sh?p.sh.toLocaleString():'—'}</td>
+      <td>${p.bps?(p.s||'$')+(p.c==='JPY'?p.bps.toLocaleString('en-US',{maximumFractionDigits:0}):p.bps.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})):'—'}</td>
+      <td>${p.bas?$(p.bas):'—'}</td><td>${p.mar?$(p.mar):'—'}</td><td>${p.le?$(p.le):'—'}</td>
+      <td>${p.sh?'<span class="live-dot '+(isLive?'on':'off')+'"></span>':''}${prStr}</td>
+      <td class="${cls(chgPct)}">${isLive?(chgPct>=0?'+':'')+chgPct.toFixed(2)+'%':'—'}</td>
+      <td>${p.adps&&price(p)>0?(p.adps/price(p)*100).toFixed(1)+'%':'—'}</td>
+      <td>${m>0?$(m):'—'}</td>
+      <td class="${cls(u)}">${u!==0?pl(u):'—'}</td>
+      <td class="${cls(p.rl||0)}">${p.rl?pl(p.rl):'—'}</td>
+      <td>${p.dv?$(p.dv):'—'}</td>
+      <td class="${cls(t)}">${t!==0?pl(t):'—'}</td>
+      <td class="${cls(p.sh?uPct:(p.unlev||0))}">${p.sh?pc(uPct):pc(p.unlev||0)}</td>
+      <td class="${cls(p.sh?lPct:(p.lev||0))}">${p.sh?pc(lPct):pc(p.lev||0)}</td>
+    </tr>`;
+
+    const nx = P[i+1];
+    if (!nx || (nx.r && nx.r !== cr)) h += subRow(cr, ra[cr]);
+  });
+
+  // Grand total
+  let gB=0,gM=0,gL=0,gMV=0,gU=0,gR=0,gD=0;
+  Object.values(ra).forEach(r=>{gB+=r.bas;gM+=r.mar;gL+=r.le;gMV+=r.mv;gU+=r.unr;gR+=r.rl;gD+=r.dv});
+  const gT=gU+gR+gD, gUP=gB>0?gT/gB*100:0, gLP=gL>0?gT/gL*100:0;
+  h+=`<tr class="total-row"><td colspan="3">SDSS II Total</td><td></td><td></td><td>${$(gB)}</td><td>${$(gM)}</td><td>${$(gL)}</td><td></td><td></td><td></td><td>${$(gMV)}</td><td class="${cls(gU)}">${pl(gU)}</td><td class="${cls(gR)}">${pl(gR)}</td><td>${$(gD)}</td><td class="${cls(gT)}">${pl(gT)}</td><td class="${cls(gUP)}">${pc(gUP)}</td><td class="${cls(gLP)}">${pc(gLP)}</td></tr>`;
+  tb.innerHTML = h;
+}
+
+function subRow(label, a) {
+  const t=a.unr+a.rl+a.dv, uP=a.bas>0?t/a.bas*100:0, lP=a.le>0?t/a.le*100:uP;
+  return `<tr class="subtotal-row"><td colspan="3">${label.split('—')[0].trim()} Subtotal</td><td></td><td></td><td>${$(a.bas)}</td><td>${a.mar?$(a.mar):'—'}</td><td>${$(a.le)}</td><td></td><td></td><td></td><td>${$(a.mv)}</td><td class="${cls(a.unr)}">${pl(a.unr)}</td><td class="${cls(a.rl)}">${a.rl?pl(a.rl):'—'}</td><td>${$(a.dv)}</td><td class="${cls(t)}">${pl(t)}</td><td class="${cls(uP)}">${pc(uP)}</td><td class="${cls(lP)}">${pc(lP)}</td></tr>`;
+}
+
+function updateCards() {
+  let tMV=0,tU=0; const tR=2293157, tD=12417822, tB=262783402;
+  P.forEach(p=>{if(p.sh>0){tMV+=mv(p);tU+=unr(p)}});
+  const tPL=tU+tR+tD, uPct=tPL/tB*100;
+  document.getElementById('sMV').textContent='$'+(tMV/1e6).toFixed(1)+'M';
+  document.getElementById('sMVsub').textContent='Live Pricing';
+  document.getElementById('sPL').textContent=(tPL>=0?'+':'-')+'$'+(Math.abs(tPL)/1e6).toFixed(1)+'M';
+  document.getElementById('sPL').className='value '+(tPL>=0?'positive':'negative');
+  document.getElementById('sPLsub').textContent=pc(uPct)+' Unlevered';
+  document.getElementById('sPLsub').className='sub '+(uPct>=0?'positive':'negative');
+}
+
+/* ═══════════════════════════════════════════════════
+   EARNINGS DATA
+   ═══════════════════════════════════════════════════ */
+const E=[
+  {t:'CPT',n:'Camden Property Trust',lr:'Q4 2025 — Feb 5, 2026',s:'Beat FFO estimates: Core FFO $1.76/sh vs $1.73 consensus. Revenue $390.8M slightly missed. Full-year Core FFO $6.88/sh, exceeding original guidance by $0.13.',k:['Selling entire SoCal portfolio → Sun Belt redeployment + buybacks','Repurchased 2.5M shares for $270.6M; new $600M buyback authorized','Q4 blended lease rates -1.6% (new -5.3%, renewals +2.8%)','Market rent growth ~2% expected for 2026, weighted to H2','New supply peaked 2024 — below-avg delivery years 2026–2027','2026 Core FFO guide: $6.60–$6.90/sh (midpoint $6.75)'],d:[{l:'Next Earnings',v:'~Late Apr 2026'},{l:'Dividend',v:'$1.06/sh quarterly'}]},
+  {t:'NXRT',n:'NexPoint Residential Trust',lr:'Q4 2025 — Feb 24, 2026',s:'Net loss $10.3M (−$0.41/sh), missed estimates. Q4 Core FFO $0.65/sh. Full-year Core FFO flat at $2.79/sh. Acquired Sedona at Lone Mountain for $73.25M.',k:['Q4 Same Store NOI declined 4.8% YoY; occupancy 92.7%','Value-add delivering 22.2% ROI; $74/mo avg premium on renovated units','Repurchased 223K shares at $34.29 — 29% discount to NAV midpoint $48.57','$121.7M liquidity; no maturities until 2028; 3.28% avg rate','2026 Core FFO guide: $2.42–$2.71/sh; SS NOI flat to -0.5%'],d:[{l:'Next Earnings',v:'~Late Apr 2026'},{l:'Dividend',v:'$0.53/sh quarterly'},{l:'Key Watch',v:'Sun Belt inflection'}]},
+  {t:'FR',n:'First Industrial Realty Trust',lr:'Q4 2025 — Feb 4, 2026',s:'Strong beat: Q4 FFO $0.77/sh (+8.5% YoY), EPS $0.59 vs $0.42 est. Full-year FFO +11.7% to $2.96/sh. Dividend hiked 12.4%.',k:['Cash rental rates +35% in Q4; +32% full year','Cash SS NOI growth 7.1% full year','45% of 2026 rollovers addressed at 35% rent increase','Amazon "particularly active" Q4 — ~10M sq ft leased','2026 FFO guide: $3.09–$3.19/sh (~6% growth); SS NOI 5-6%'],d:[{l:'Next Earnings',v:'Apr 22, 2026'},{l:'Dividend',v:'$0.50/sh quarterly'}]},
+  {t:'EQR',n:'Equity Residential',lr:'Q4 2025 — Feb 5, 2026',s:'EPS beat ($1.00 vs $0.38). Revenue $781.9M slightly missed. SS revenues +2.6%, NOI +2.2%. Highest resident retention in company history.',k:['Portfolio occupancy 96%+ (97% in SF/NYC)','Net seller: $1.1B dispositions, $637M acquisitions','~4.8M shares repurchased for ~$300M; 13M share buyback authorized','2026 Normalized FFO guide: $4.08/sh (+2.25% YoY)'],d:[{l:'Next Earnings',v:'~Apr 28, 2026'},{l:'Dividend',v:'$0.6925/sh quarterly'}]},
+  {t:'MAA',n:'Mid-America Apartment Communities',lr:'Q4 2025 — Feb 4, 2026',s:'Q4 Core FFO $2.23/sh met guidance. Full-year $8.74/sh. Occupancy 95.7% (+10bps YoY), blended rates improving 40bps.',k:['Renewals running above 5% for Jan–Mar 2026','New deliveries expected down 60%+ from peak in 2026','Historically low turnover 40.2%','5,995 interior upgrades in 2025 — 19% cash-on-cash return','2026 Core FFO guide: $8.35–$8.71 (midpoint $8.53)'],d:[{l:'Next Earnings',v:'~Late Apr 2026'},{l:'Dividend',v:'$1.53/sh quarterly'}]},
+  {t:'VRE',n:'Veris Residential',lr:'Q4 2025 — Feb 23, 2026',s:'Core FFO $0.19/sh (+16% surprise). Annual Core FFO surged 20%+ to $0.72/sh. SS NOI +5.9% Q4, +2.7% full year.',k:['$542M non-strategic asset sales (above target)','Debt pay-down ~$490M; Net Debt/EBITDA to 9.0x','Consolidated largest JV → "Sable" for $38.5M','All debt hedged/fixed; $280M liquidity'],d:[{l:'Next Earnings',v:'~Late Apr 2026'},{l:'Dividend',v:'$0.08/sh quarterly'}]},
+  {t:'IRES',n:'Irish Residential Properties REIT',lr:'FY 2025 — Feb 19, 2026',s:'Swung to €49.7M profit (from €6.7M loss). Adjusted earnings +7.4%. NRI margin 78% (+120bps). Occupancy 99.5%.',k:['Avg rent +2.1% to €1,852; ~3,600 units Dublin','Ireland rent reform effective Mar 1 — market resets on vacancy','~20% portfolio reversion potential','LTV improved to 43.6%'],d:[{l:'Key Date',v:'Mar 1 — New rent regs'},{l:'Dividend',v:'~€0.05/sh'}]},
+  {t:'SGRO',n:'SEGRO Plc',lr:'FY 2025 — Feb 20, 2026',s:'Record year: £99M new rent. Adj EPS +6.1% to 36.6p. Pre-tax profit +8.3% to £509M. First positive portfolio valuation since 2022.',k:['UK rent reviews delivering 46% avg uplift','Occupancy 94.9% (+90bps); 82% customer retention','Data centre strategy: >2.5GW powered land','Dividend +6.1% to 31.1p/sh; adj NAV 925p/sh'],d:[{l:'Next Results',v:'~Jul 2026 (H1)'},{l:'Key Watch',v:'Data centre JV deals'}]},
+  {t:'XIOR',n:'Xior Student Housing NV',lr:'FY 2025 — Feb 3, 2026',s:'EPS confirmed €2.21, DPS €1.768. LfL rental growth 5.42%. Occupancy 98%. Portfolio ~€3.6B across 8 countries.',k:['2-yr growth plan: EPS €2.30 (2026, +4%), €2.40 (2027, +4%)','Active pipeline +€10.2M/yr extra rent','Completed Wenedów Warsaw (+400 units)'],d:[{l:'2026 EPS Guide',v:'€2.30 (+4%)'},{l:'Dividend',v:'€1.768/sh'}]},
+  {t:'8979',n:'Starts Proceed Investment Corp.',lr:'Recent Period',s:'Small J-REIT position (1,226 units, ~$1.7M). 4.5% dividend yield. Japanese multifamily focused on metro residential rental.',k:['Unit price ~flat at ¥211,500 vs ¥210,927 basis','J-REIT sector benefiting from BOJ policy','Semi-annual distributions (Apr/Oct year-end)'],d:[{l:'Fiscal Year',v:'Apr & Oct'},{l:'Key Watch',v:'BOJ rate policy'}]},
+];
+
+function buildEarnings() {
+  document.getElementById('eGrid').innerHTML = E.map(e=>`<div class="earning-card"><div class="ec-header"><div class="ec-ticker"><span class="tk">${e.t}</span><span class="nm">${e.n}</span></div><div class="ec-meta">${e.lr}</div></div><div class="ec-body"><h4>Summary</h4><p>${e.s}</p><h4>Key Takeaways</h4><ul>${e.k.map(k=>`<li>${k}</li>`).join('')}</ul></div><div class="ec-dates">${e.d.map(d=>`<div class="dt-item"><span class="dt-label">${d.l}:</span><span class="dt-val">${d.v}</span></div>`).join('')}</div></div>`).join('');
+}
+
+/* ═══════════════════════════════════════════════════
+   EARNINGS MONITOR — checks Yahoo Finance for new reports
+   ═══════════════════════════════════════════════════ */
+
+// Last known earnings dates (from our research). Format: YYYY-MM-DD
+const LAST_KNOWN_EARNINGS = {
+  'CPT': '2026-02-05',
+  'NXRT': '2026-02-24',
+  'FR':  '2026-02-04',
+  'EQR': '2026-02-05',
+  'MAA': '2026-02-04',
+  'VRE': '2026-02-23',
+  'IRES': '2026-02-19',
+  'SGRO': '2026-02-20',
+  'XIOR': '2026-02-03',
+  '8979': '2025-12-01',
+};
+
+// Expected next earnings dates (best estimates)
+const NEXT_EARNINGS_EST = {
+  'CPT': '2026-04-29',
+  'NXRT': '2026-04-28',
+  'FR':  '2026-04-22',
+  'EQR': '2026-04-28',
+  'MAA': '2026-04-28',
+  'VRE': '2026-04-28',
+  'IRES': '2026-08-15',
+  'SGRO': '2026-07-22',
+  'XIOR': '2026-04-28',
+  '8979': '2026-06-15',
+};
+
+// Dismissed alerts (stored in localStorage)
+function getDismissed() {
+  try { return JSON.parse(localStorage.getItem('sdss2_dismissed') || '{}'); } catch(e) { return {}; }
+}
+function dismissAlert(ticker, date) {
+  const d = getDismissed();
+  d[ticker] = date;
+  localStorage.setItem('sdss2_dismissed', JSON.stringify(d));
+  renderAlerts();
+}
+
+// Check Yahoo Finance for actual earnings dates
+async function checkEarningsCalendar() {
+  const alerts = [];
+  const proxies = [
+    s => `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v10/finance/quoteSummary/${s}?modules=earningsHistory,calendarEvents`)}`,
+    s => `https://corsproxy.io/?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v10/finance/quoteSummary/${s}?modules=earningsHistory,calendarEvents`)}`,
+  ];
+
+  for (const p of P) {
+    if (!p.yf || p.sh === 0) continue;
+
+    for (const makeUrl of proxies) {
+      try {
+        const resp = await fetch(makeUrl(p.yf), {signal: AbortSignal.timeout(6000)});
+        if (!resp.ok) continue;
+        const data = await resp.json();
+        const cal = data?.quoteSummary?.result?.[0]?.calendarEvents;
+        const hist = data?.quoteSummary?.result?.[0]?.earningsHistory;
+
+        // Check if there's a most recent earnings date newer than what we know
+        if (hist?.history) {
+          const sorted = hist.history
+            .map(h => ({date: h.quarter?.fmt, epsActual: h.epsActual?.raw, epsEstimate: h.epsEstimate?.raw}))
+            .filter(h => h.date)
+            .sort((a,b) => b.date.localeCompare(a.date));
+
+          if (sorted.length > 0) {
+            const latest = sorted[0];
+            const lastKnown = LAST_KNOWN_EARNINGS[p.t];
+            if (latest.date && lastKnown && latest.date > lastKnown) {
+              alerts.push({
+                ticker: p.t,
+                name: p.n,
+                type: 'new',
+                date: latest.date,
+                detail: latest.epsActual != null
+                  ? `EPS: $${latest.epsActual.toFixed(2)} (est: $${(latest.epsEstimate||0).toFixed(2)})`
+                  : 'Results released — review takeaways',
+              });
+            }
+          }
+        }
+
+        // Check upcoming earnings date from calendar
+        if (cal?.earnings?.earningsDate) {
+          const upcoming = cal.earnings.earningsDate.map(d => d.fmt).filter(Boolean).sort();
+          if (upcoming.length > 0) {
+            NEXT_EARNINGS_EST[p.t] = upcoming[0];
+          }
+        }
+
+        break; // success
+      } catch(e) { continue; }
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  if (alerts.length > 0) {
+    localStorage.setItem('sdss2_alerts', JSON.stringify(alerts));
+  }
+  renderAlerts();
+  renderEarningsCountdowns();
+}
+
+function renderAlerts() {
+  const container = document.getElementById('earningsAlerts');
+  let stored = [];
+  try { stored = JSON.parse(localStorage.getItem('sdss2_alerts') || '[]'); } catch(e) {}
+
+  // Also build upcoming-soon alerts
+  const now = new Date();
+  const upcoming = [];
+  for (const [ticker, dateStr] of Object.entries(NEXT_EARNINGS_EST)) {
+    const d = new Date(dateStr);
+    const daysAway = Math.ceil((d - now) / (1000*60*60*24));
+    if (daysAway >= 0 && daysAway <= 7) {
+      const pos = P.find(p => p.t === ticker);
+      if (pos && pos.sh > 0) {
+        upcoming.push({ ticker, name: pos.n, daysAway, date: dateStr });
+      }
+    }
+  }
+
+  const dismissed = getDismissed();
+  let html = '';
+
+  // New earnings alerts (not dismissed)
+  stored.forEach(a => {
+    if (dismissed[a.ticker] === a.date) return;
+    html += `<div class="earn-alert new-earnings">
+      <div class="alert-icon">🔴</div>
+      <div class="alert-body">
+        <div class="alert-title">${a.ticker} — New Earnings Available</div>
+        <div class="alert-detail">${a.name} reported results on ${a.date}. ${a.detail}. Takeaways below may be outdated.</div>
+      </div>
+      <div class="alert-time">${a.date}</div>
+      <button class="dismiss-btn" onclick="dismissAlert('${a.ticker}','${a.date}')">Dismiss</button>
+    </div>`;
+  });
+
+  // Upcoming earnings alerts
+  upcoming.forEach(u => {
+    const urgency = u.daysAway <= 2 ? '🟡' : '📅';
+    const dayText = u.daysAway === 0 ? 'TODAY' : u.daysAway === 1 ? 'TOMORROW' : `in ${u.daysAway} days`;
+    html += `<div class="earn-alert">
+      <div class="alert-icon">${urgency}</div>
+      <div class="alert-body">
+        <div class="alert-title">${u.ticker} — Earnings ${dayText}</div>
+        <div class="alert-detail">${u.name} is expected to report on ${u.date}. Watch for updated results.</div>
+      </div>
+      <div class="alert-time">${dayText.toUpperCase()}</div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+function renderEarningsCountdowns() {
+  // Update the earnings cards with countdown badges
+  const now = new Date();
+  document.querySelectorAll('.earning-card .ec-header').forEach(header => {
+    const tickerEl = header.querySelector('.tk');
+    if (!tickerEl) return;
+    const ticker = tickerEl.textContent;
+    const nextDate = NEXT_EARNINGS_EST[ticker];
+    if (!nextDate) return;
+
+    // Remove any existing countdown badge
+    const existing = header.querySelector('.countdown-badge');
+    if (existing) existing.remove();
+
+    const d = new Date(nextDate);
+    const daysAway = Math.ceil((d - now) / (1000*60*60*24));
+    if (daysAway < 0) return;
+
+    const badge = document.createElement('span');
+    let label, cls;
+    if (daysAway <= 3) { label = daysAway === 0 ? 'TODAY' : daysAway === 1 ? '1 DAY' : `${daysAway} DAYS`; cls = 'imminent'; }
+    else if (daysAway <= 14) { label = `${daysAway}d`; cls = 'upcoming'; }
+    else if (daysAway <= 60) { label = `${Math.ceil(daysAway/7)}w`; cls = 'distant'; }
+    else return;
+
+    badge.className = `countdown-badge ${cls}`;
+    badge.textContent = `⏱ ${label}`;
+    header.querySelector('.ec-meta').appendChild(badge);
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   INIT
+   ═══════════════════════════════════════════════════ */
+function updateClock(){document.getElementById('clock').textContent=new Date().toLocaleString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})}
+setInterval(updateClock,1000); updateClock();
+
+render();
+buildEarnings();
+renderAlerts(); // show any cached alerts immediately
+refresh(); // initial price fetch
+checkEarningsCalendar(); // check for new earnings
+setInterval(refresh, 30000); // price refresh every 30s
+setInterval(checkEarningsCalendar, 3600000); // earnings check every hour
+</script>
+</body>
+</html>
