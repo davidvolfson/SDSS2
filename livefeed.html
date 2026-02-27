@@ -9,7 +9,7 @@
 :root{--bg:#0a0c10;--surface:#12151c;--surface2:#181c26;--border:#1e2330;--text:#e2e4e9;--text2:#8b8f9a;--accent:#5b8af5;--green:#34d399;--red:#f87171;--amber:#fbbf24;--header-bg:#0d0f14}
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;line-height:1.5;min-height:100vh}
-.top-bar{background:var(--header-bg);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;backdrop-filter:blur(12px)}
+.top-bar{background:var(--header-bg);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(12px)}
 .logo{display:flex;align-items:center;gap:12px}
 .logo-mark{width:36px;height:36px;background:linear-gradient(135deg,var(--accent),#8b5cf6);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;color:#fff;letter-spacing:-0.5px}
 .logo h1{font-size:18px;font-weight:700;letter-spacing:-0.5px}
@@ -25,8 +25,8 @@ body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;lin
 .api-badge.warn{background:rgba(251,191,36,.12);color:var(--amber)}
 .api-badge.err{background:rgba(248,113,113,.12);color:var(--red)}
 .container{max-width:1600px;margin:0 auto;padding:24px 32px}
-.summary-wrap{position:sticky;top:57px;z-index:99;background:var(--bg);padding:0 0 4px 0;margin:0 -32px;padding-left:32px;padding-right:32px}
-.summary-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:12px}
+.summary-wrap{}
+.summary-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
 .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
 .summary-card .label{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--text2);margin-bottom:6px;font-weight:600}
 .summary-card .value{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:600}
